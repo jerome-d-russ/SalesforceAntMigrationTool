@@ -6,6 +6,7 @@ In order to begin using the ANT Migration Tool and the scripts associated with t
 
 * Install Java and Ant: https://developer.salesforce.com/docs/atlas.en-us.daas.meta/daas/forcemigrationtool_prereq.htm
 
+* Install an svn cli program if you want to use the 'Update to Head' functionality. [TortoiseSVN](https://tortoisesvn.net/downloads.html) includes one if you are on Windows.
 
 * Setup Properties File (detailed below)
 
