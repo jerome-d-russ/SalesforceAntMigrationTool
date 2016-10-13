@@ -6,6 +6,7 @@ In order to begin using the ANT Migration Tool and the scripts associated with t
 
 * Install Java and Ant: https://developer.salesforce.com/docs/atlas.en-us.daas.meta/daas/forcemigrationtool_prereq.htm
 
+
 * Setup Properties File (detailed below)
 
 * Configure External Tools Configuration in Force.com IDE (or your preferred tool's equivalent)
