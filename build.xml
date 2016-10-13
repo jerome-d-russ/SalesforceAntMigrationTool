@@ -1,0 +1,465 @@
+<!-- Full installation instructions for Ant Migration Tool: https://developer.salesforce.com/docs/atlas.en-us.daas.meta/daas/forcemigrationtool_container_install.htm -->
+<project name="Ant Tasks for SVN Deployment" default="" basedir="." xmlns:sf="antlib:com.salesforce">
+
+	<property file="build.properties"/>
+	<property environment="env"/>
+
+	<!-- Download from https://gs0.salesforce.com/dwnld/SfdcAnt/salesforce_ant_38.0.zip -->
+	<taskdef resource="com/salesforce/antlib.xml" uri="antlib:com.salesforce">
+		<classpath>
+			<pathelement location="${basedir}/lib/ant-salesforce.jar" />
+		</classpath>
+	</taskdef>
+
+	<!-- Download from http://sourceforge.net/projects/ant-contrib/files/ant-contrib/1.0b3/ -->
+	<taskdef
+		resource="net/sf/antcontrib/antlib.xml"
+		classpath="${basedir}/lib/ant-contrib-1.0b3.jar"
+	/>
+
+	<target name="ValidateProjectToOrg" depends="proxy">
+		<input
+			message="Project you want to validate?"
+	    	defaultvalue="Trunk"
+			addproperty="dc.project"
+	  	/>
+		<input
+			message="What Folder do you want to use for deployment?"
+	    	defaultvalue="Deployment"
+			addproperty="dc.deployment"
+	  	/>
+		<condition property="isSVN">
+			<available file="${workspace}${dc.project}/.svn" type="dir"/>
+		</condition>
+		<if>
+			<equals arg1="true" arg2="${isSVN}"/>
+			<then>
+				<input
+					message="Do you want to update to head?"
+					validargs="true,false"
+			  		defaultvalue="true"
+					addproperty="dc.update"
+			  	/>
+				<if>
+			  		<equals arg1="true" arg2="${dc.update}"/>
+			  		<then>
+						<exec executable="svn">
+							<arg line="update ${workspace}${dc.project} -r HEAD --depth=infinity" />
+						</exec>
+			  		</then>
+			  	</if>
+
+				<property name="svn.return.txt" value="exec-output.txt"/>
+				<exec executable="svn" output="${svn.return.txt}">
+					<arg line="status ${workspace}${dc.project}" />
+				</exec>
+				<loadfile srcFile="${svn.return.txt}" property="svn.return"/>
+				<delete file="exec-output.txt" quiet="true"/>
+				<if>
+					<contains string="${svn.return}" substring="Summary of conflicts:" />
+					<then>
+						<echo message="${svn.return}"/>
+						<fail message="There was a conflict with ${dc.project}! Please resolve the conflict then rerun the script!"/>
+					</then>
+				</if>
+			</then>
+		</if>
+		<parallel>
+			<sequential>
+	  			<delete dir="${workspace}${dc.deployment}" failonerror="false"/>
+	  			<copy todir="${workspace}${dc.deployment}/src">
+					<fileset dir="${workspace}${dc.project}/src"/>
+	  			</copy>
+			</sequential>
+			<sequential>
+				<input
+					message="Username you want to validate ${dc.project} with?"
+					defaultvalue="${dc.default.user}"
+					addproperty="dc.user"
+				/>
+				<input
+					message="Password of the Username you want to validate ${dc.project} with?"
+					addproperty="dc.pwd"
+				/>
+				<input
+					message="checkOnly?"
+					validargs="true,false"
+					defaultvalue="true"
+					addproperty="dc.checkOnly"
+				/>
+				<input
+					message="testLevel?"
+					validargs="NoTestRun,RunLocalTests,RunSpecifiedTests"
+					defaultvalue="NoTestRun"
+					addproperty="dc.testLevel"
+				/>
+				<if>
+			  		<equals arg1="RunSpecifiedTests" arg2="${dc.testLevel}"/>
+			  		<then>
+						<echo message="Not yet implemented"/>
+			  			<property name="dc.testLevel" value="NoTestRun"/>
+			  		</then>
+			  	</if>
+				<input
+					message="login server"
+					validargs="test.salesforce.com,login.salesforce.com"
+					defaultvalue="test.salesforce.com"
+					addproperty="dc.serverurl"
+				/>
+				<input
+					message="Deploy Destructive Changes?"
+					validargs="true,false"
+					defaultvalue="false"
+					addproperty="dc.destructiveChanges"
+				/>
+				<input
+					message="Do you need to deploy Process Builder/Flows?"
+					validargs="true,false"
+					defaultvalue="false"
+					addproperty="dc.checkFlows"
+				/>
+			</sequential>
+		</parallel>
+		<if>
+	  		<equals arg1="true" arg2="${dc.checkFlows}"/>
+	  		<then>
+	  			<!-- Build Project for Flows and Flow Definitions -->
+	  			<delete dir="${workspace}BuildFlows" failonerror="false"/>
+	  			<mkdir dir="${workspace}BuildFlows"/>
+	  			<mkdir dir="${workspace}BuildFlows/src"/>
+	  			<copy file="${workspace}${dc.deployment}/src/package.xml" tofile="${workspace}BuildFlows/src/package.xml"/>
+				<replaceregexp
+				  match="\s*&lt;types>\s*(&lt;members>.+&lt;\/members>\s*)*&lt;name>(?!(Flow|FlowDefinition)).*&lt;\/name>\s*&lt;\/types>"
+				  replace=""
+				  flags="g"
+				  byline="false">
+				  <fileset
+				    dir="${workspace}BuildFlows/src"
+				    includes="package.xml"
+				  />
+				</replaceregexp>
+	  			<!-- Pull down Flows and Flow Definitions -->
+	  			<sf:retrieve
+	  				username="${dc.user}"
+	  				password="${dc.pwd}"
+	  				serverurl="${dc.serverurl}"
+	  				maxPoll="${sf.maxPoll}"
+	  				retrieveTarget="${workspace}BuildFlows/src"
+	  				unpackaged="${workspace}BuildFlows/src/package.xml"
+	  			/>
+				<!-- When Retrieved, delete any Flows that are in SF and Local -->
+	  			<delete>
+	  			    <fileset dir="${workspace}${dc.deployment}/src/Flows">
+	  			    	<not>
+	  			    		<different targetdir="${workspace}BuildFlows/src/Flows"/>
+	  			    	</not>
+	  			    </fileset>
+	  			</delete>
+	  			<!-- Only delete FlowDefinitions that do not have a Flow tied to it -->
+	  			<delete>
+	  			    <fileset dir="${workspace}${dc.deployment}/src/FlowDefinitions">
+	  			    	<not>
+		  			        <different targetdir="${workspace}BuildFlows/src/FlowDefinitions"/>
+	  			    	</not>
+	  			    </fileset>
+	  			</delete>
+	  		</then>
+			<else>
+				<echo message="Removing Flow and FlowDefinition from package.xml" />
+				<!-- Remove Flows / Flow Definitions from package.xml -->
+	  			<delete dir="${workspace}${dc.deployment}/src/Flows" failonerror="false"/>
+		  		<delete dir="${workspace}${dc.deployment}/src/FlowDefinitions" failonerror="false"/>
+				<replaceregexp
+				  match="\s*&lt;types>\s*&lt;members>.+&lt;\/members>\s*&lt;name>(Flow|FlowDefinition)&lt;\/name>\s*&lt;\/types>"
+				  replace=""
+				  flags="g"
+				  byline="false">
+				  <fileset
+				    dir="${workspace}${dc.deployment}/src"
+				    includes="package.xml"
+				  />
+				</replaceregexp>
+			</else>
+	  	</if>
+
+		<clean.deployment.folder md.project.folder="${workspace}${dc.deployment}"/>
+
+		<if>
+	  		<equals arg1="false" arg2="${dc.destructiveChanges}"/>
+	  		<then>
+	  			<echo message="Removing Destructive Changes from the deployment!"/>
+	  			<delete file="${workspace}${dc.deployment}/src/destructiveChanges.xml" failonerror="false"/>
+	  			<delete file="${workspace}${dc.deployment}/src/destructiveChangesPre.xml" failonerror="false"/>
+				<delete file="${workspace}${dc.deployment}/src/destructiveChangesPost.xml" failonerror="false"/>
+	  		</then>
+	  	</if>
+
+		<echo message="${dc.project} To Salesforce (user: ${dc.user})!"/>
+		<sf:deploy
+			username="${dc.user}"
+			password="${dc.pwd}"
+			serverurl="${dc.serverurl}"
+			maxPoll="${sf.maxPoll}"
+			deployRoot="${workspace}${dc.deployment}/src"
+			rollbackOnError="true"
+			ignoreWarnings="false"
+			checkOnly="${dc.checkOnly}"
+			testLevel="${dc.testLevel}"
+		/>
+	</target>
+
+	<target name="CleanProjectFolder">
+		<input
+			message="Where do you want to put the code?"
+	    	defaultvalue="Trunk"
+			addproperty="dc.project"
+	  	/>
+		<clean.deployment.folder md.project.folder="${workspace}${dc.project}"/>
+	</target>
+
+	<target name="DeployDestructiveChanges" depends="proxy">
+		<input
+			message="Project you want to deploy Destructive Changes from?"
+	    	defaultvalue="Trunk"
+			addproperty="dc.project"
+	  	/>
+		<input
+			message="What Folder do you want to use for deployment?"
+	    	defaultvalue="Deployment"
+			addproperty="dc.deployment"
+	  	/>
+		<condition property="isSVN">
+			<available file="${workspace}${dc.project}/.svn" type="dir"/>
+		</condition>
+		<if>
+			<equals arg1="true" arg2="${isSVN}"/>
+			<then>
+				<input
+					message="Do you want to update to head?"
+					validargs="true,false"
+			  		defaultvalue="true"
+					addproperty="dc.update"
+			  	/>
+				<if>
+			  		<equals arg1="true" arg2="${dc.update}"/>
+			  		<then>
+						<exec executable="svn">
+							<arg line="update ${workspace}${dc.project} -r HEAD --depth=infinity" />
+						</exec>
+			  		</then>
+			  	</if>
+
+				<property name="svn.return.txt" value="exec-output.txt"/>
+				<exec executable="svn" output="${svn.return.txt}">
+					<arg line="status ${workspace}${dc.project}" />
+				</exec>
+				<loadfile srcFile="${svn.return.txt}" property="svn.return"/>
+				<delete file="exec-output.txt" quiet="true"/>
+				<if>
+					<contains string="${svn.return}" substring="Summary of conflicts:" />
+					<then>
+						<echo message="${svn.return}"/>
+						<fail message="There was a conflict with ${dc.project}! Please resolve the conflict then rerun the script!"/>
+					</then>
+				</if>
+			</then>
+		</if>
+		<parallel>
+			<sequential>
+	  			<delete dir="${workspace}${dc.deployment}" failonerror="false"/>
+	  			<copy todir="${workspace}${dc.deployment}/src">
+					<fileset dir="${workspace}${dc.project}/src">
+					    <filename name="*.xml"/>
+					</fileset>
+	  			</copy>
+				<replaceregexp
+				  match="\s*&lt;types>\s*(&lt;members>.+&lt;\/members>\s*)*&lt;name>.*&lt;\/name>\s*&lt;\/types>"
+				  replace=""
+				  flags="g"
+				  byline="false">
+				  <fileset
+				    dir="${workspace}${dc.deployment}/src"
+				    includes="package.xml"
+				  />
+				</replaceregexp>
+			</sequential>
+			<sequential>
+				<input
+					message="Username you want to deploy ${dc.project} with?"
+					defaultvalue="${dc.default.user}"
+					addproperty="dc.user"
+				/>
+				<input
+					message="Password of the Username you want to deploy ${dc.project} with?"
+					addproperty="dc.pwd"
+				/>
+				<input
+					message="checkOnly?"
+					validargs="true,false"
+					defaultvalue="true"
+					addproperty="dc.checkOnly"
+				/>
+				<input
+					message="testLevel?"
+					validargs="NoTestRun,RunLocalTests,RunSpecifiedTests"
+					defaultvalue="NoTestRun"
+					addproperty="dc.testLevel"
+				/>
+				<if>
+			  		<equals arg1="RunSpecifiedTests" arg2="${dc.testLevel}"/>
+			  		<then>
+						<echo message="Not yet implemented"/>
+			  			<property name="dc.testLevel" value="NoTestRun"/>
+			  		</then>
+			  	</if>
+				<input
+					message="Login server"
+					validargs="test.salesforce.com,login.salesforce.com"
+					defaultvalue="test.salesforce.com"
+					addproperty="dc.serverurl"
+				/>
+			</sequential>
+		</parallel>
+
+		<echo message="Deploying Destructive Changes from ${dc.project} To Salesforce (user: ${dc.user})!"/>
+		<sf:deploy
+			username="${dc.user}"
+			password="${dc.pwd}"
+			serverurl="${dc.serverurl}"
+			maxPoll="${sf.maxPoll}"
+			deployRoot="${workspace}${dc.deployment}/src"
+			rollbackOnError="true"
+			ignoreWarnings="true"
+			checkOnly="${dc.checkOnly}"
+			testLevel="${dc.testLevel}"
+		/>
+	</target>
+
+	<target name="PullDownCodeFromSalesforce" depends="proxy">
+		<input
+			message="Where do you want to put the code?"
+	    	defaultvalue="Trunk"
+			addproperty="dc.project"
+	  	/>
+		<input
+			message="What Folder do you want to use for deployment?"
+	    	defaultvalue="Deployment"
+			addproperty="dc.deployment"
+	  	/>
+		<input
+			message="Username you want to use to pull down code in to ${dc.project}?"
+			defaultvalue="${dc.default.user}"
+			addproperty="dc.user"
+		/>
+		<input
+			message="Password you want to use to pull down code in to  ${dc.project}?"
+			addproperty="dc.pwd"
+		/>
+		<input
+			message="login server"
+			validargs="test.salesforce.com,login.salesforce.com"
+			defaultvalue="test.salesforce.com"
+			addproperty="dc.serverurl"
+		/>
+		<echo message="From Salesforce (user: ${dc.user}) to ${dc.project}!"/>
+		<delete dir="${workspace}${dc.deployment}" failonerror="false"/>
+		<mkdir dir="${workspace}${dc.deployment}/src" />
+		<sf:retrieve
+			username="${dc.user}"
+			password="${dc.pwd}"
+			serverurl="${dc.serverurl}"
+			maxPoll="${sf.maxPoll}"
+			retrieveTarget="${workspace}${dc.deployment}/src"
+			unpackaged="${workspace}${dc.project}/src/package.xml"
+		/>
+		<delete includeEmptyDirs="true">
+		  <fileset dir="${workspace}${dc.project}/src/" includes="/**" excludes="/*"/>
+		</delete>
+		<copy todir="${workspace}${dc.project}/src">
+			<fileset dir="${workspace}${dc.deployment}/src"/>
+		</copy>
+	</target>
+
+	<target name="BuildApexDoc">
+		<input
+			message="Project you want to build ApexDoc for?"
+	    	defaultvalue="Trunk"
+			addproperty="dc.project"
+	  	/>
+		<input
+			message="What is the Subversion Url you want to point the ApexDoc to?"
+	    	defaultvalue="${dc.default.svn.url}"
+			addproperty="dc.svn.url"
+	  	/>
+		<java jar="./lib/ApexDoc/apexdoc.jar" fork="true">
+			<arg line="-s '../${dc.project}/src/classes/'"/>
+			<arg line="-t '../${dc.project}'"/>
+			<arg line="-g '${dc.svn.url}'"/>
+			<arg line="-h '../${dc.project}/ApexDoc/Home.html'"/>
+			<arg line="-a '../${dc.project}/ApexDoc/Header.html'"/>
+			<arg line="-p 'global;public;private;testmethod;webService'"/>
+		</java>
+	</target>
+
+	<target name="BuildMarkDownFile">
+		<input
+			message="What md file do you want to compile? [Full file path and file name, or relative to build.xml]"
+	    	defaultvalue="${dc.default.buildMd}"
+			addproperty="dc.buildMd"
+	  	/>
+		<input
+			message="Where do you want to save the file? [Full file path and file name, or relative to build.xml]"
+	    	defaultvalue="${dc.default.buildHtml}"
+			addproperty="dc.buildHtml"
+	  	/>
+		<exec executable="${dc.md.exe}">
+			<arg line=" -i '${dc.buildMd}' -o '${dc.buildHtml}'" />
+		</exec>
+	</target>
+
+	<target name="proxy">
+		<property name="proxyhost" value="${proxy.url}" />
+		<property name="proxyport" value="${proxy.port}" />
+		<property name="proxyuser" value="${proxy.username}" />
+		<property name="proxypwd" value="${proxy.password}" />
+		<setproxy proxyhost="${proxyhost}" proxyport="${proxyport}" proxyuser="${proxyuser}" proxypassword="${proxypwd}" />
+	</target>
+
+	<macrodef name="clean.deployment.folder">
+	    <attribute name="md.project.folder" />
+	    <sequential>
+			<echo message="Removing references that cannot be migrated from Profiles" />
+			<replaceregexp
+			  match="\s*&lt;layoutAssignments&gt;\s*&lt;layout&gt;(FeedItem-Feed Item Layout|SocialPost-Social Post Layout|UserAlt-User Profile Layout|SocialPersona-Social Persona Layout)&lt;/layout&gt;\s*&lt;/layoutAssignments&gt;"
+			  replace=""
+			  flags="gm"
+			  byline="false">
+			  <fileset
+			    dir="@{md.project.folder}/src/profiles"
+			    includes="**/*.profile"
+			  	erroronmissingdir="false"
+			  />
+			</replaceregexp>
+			<replaceregexp
+			  match="\s*&lt;tabVisibilities&gt;\s*&lt;tab&gt;standard-SocialPersona&lt;/tab&gt;\s*&lt;visibility&gt;DefaultOff&lt;/visibility&gt;\s*&lt;/tabVisibilities&gt;"
+			  replace=""
+			  flags="gm"
+			  byline="false">
+			  <fileset
+			    dir="@{md.project.folder}/src/profiles"
+			    includes="**/*.profile"
+			  	erroronmissingdir="false"
+			  />
+			</replaceregexp>
+
+			<echo message="Deleting files that cannot be deployed." />
+			<delete file="@{md.project.folder}/src/layouts/FeedItem-Feed Item Layout.layout" failonerror="false"/>
+			<delete file="@{md.project.folder}/src/layouts/SocialPost-Social Post Layout.layout" failonerror="false"/>
+			<delete file="@{md.project.folder}/src/workflows/ExternalEventMapping.workflow" failonerror="false"/>
+			<delete file="@{md.project.folder}/src/workflows/Question.workflow" failonerror="false"/>
+			<delete file="@{md.project.folder}/src/workflows/Reply.workflow" failonerror="false"/>
+			<delete file="@{md.project.folder}/src/workflows/SocialPost.workflow" failonerror="false"/>
+		</sequential>
+	</macrodef>
+
+</project>
