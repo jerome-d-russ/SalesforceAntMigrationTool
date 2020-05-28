@@ -17,6 +17,14 @@
 		classpath="${basedir}/lib/ant-contrib-1.0b3.jar"
 	/>
 
+	<taskdef name="pmd" classname="net.sourceforge.pmd.ant.PMDTask">
+    <classpath>
+        <fileset dir="${basedir}/lib/pmd">
+            <include name="*.jar"/>
+        </fileset>
+    </classpath>
+	</taskdef>
+
 	<target name="ValidateProjectToOrg" depends="proxy">
 		<input
 			message="Project you want to validate?"
@@ -353,6 +361,32 @@
 			serverurl="${sf.serverurl}" 
 			retrieveTarget="${sf.projectFolder}" 
 			unpackaged="package.xml"/>
+	</target>
+
+	<target name="runTestsProxy" depends="proxy">
+       <sf:deploy
+			username="${sf.username}"
+			password="${sf.password}"
+			serverurl="${sf.serverurl}"
+			deployRoot="dummy"
+			testLevel="RunSpecifiedTests"
+			checkOnly="true">
+			<for list="${sf.tests}" param="test">
+				<sequential>
+					<runTest>"@{test}"</runTest>
+				</sequential>
+			</for>
+		</sf:deploy>
+	</target>
+
+	<target name="pmd">
+		<taskdef name="pmd" classname="net.sourceforge.pmd.ant.PMDTask" />
+		<pmd shortFilenames="true">
+			<ruleset>category/apex/bestpractices.xml</ruleset>
+			<fileset dir="${sf.projectFolder}/classes">
+				<include name="*.cls"/>
+			</fileset>
+		</pmd>
 	</target>
 
 	<target name="PullDownCodeFromSalesforce" depends="proxy">
