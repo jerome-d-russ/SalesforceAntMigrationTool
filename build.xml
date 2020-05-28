@@ -336,12 +336,12 @@
 	</target>
 
 	<target name="retrieveSource">
-		<mkdir dir="projectFolder"/>
+		<mkdir dir="${bamboo.sf.projectFolder}"/>
 		<sf:retrieve 
-			username="${sf.username}" 
-			password="${sf.password}" 
-			serverurl="${sf.serverurl}" 
-			retrieveTarget="projectFolder" 
+			username="${bamboo.sf.username}" 
+			password="${bamboo.sf.password}" 
+			serverurl="${bamboo.sf.serverurl}" 
+			retrieveTarget="${bamboo.sf.projectFolder}" 
 			unpackaged="package.xml"/>
 	</target>
 
