@@ -345,6 +345,16 @@
 			unpackaged="package.xml"/>
 	</target>
 
+	<target name="retrieveSourceProxy" depends="proxy">
+		<mkdir dir="${sf.projectFolder}"/>
+		<sf:retrieve 
+			username="${sf.username}" 
+			password="${sf.password}" 
+			serverurl="${sf.serverurl}" 
+			retrieveTarget="${sf.projectFolder}" 
+			unpackaged="package.xml"/>
+	</target>
+
 	<target name="PullDownCodeFromSalesforce" depends="proxy">
 		<input
 			message="Where do you want to put the code?"
