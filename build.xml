@@ -340,7 +340,7 @@
 		<sf:retrieve 
 			username="${bamboo.sf.username}" 
 			password="${bamboo.sf.password}" 
-			serverurl="${bamboo.sf.serverurl}" 
+			serverurl=${bamboo.sf_serverurl} 
 			retrieveTarget="${bamboo.sf.projectFolder}" 
 			unpackaged="package.xml"/>
 	</target>
