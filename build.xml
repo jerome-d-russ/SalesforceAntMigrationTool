@@ -364,6 +364,7 @@
 	</target>
 
 	<target name="runTestsProxy" depends="proxy">
+		<taskdef resource="com/salesforce/antlib.xml" classpath="${basedir}/lib/ant-salesforce.jar" />
 		<script language="javascript"><![CDATA[
 		var deployTask = project.createTask('antlib:com.salesforce:deploy');
 		deployTask.setUsername(project.getProperty("sf.username"));
