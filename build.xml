@@ -363,19 +363,31 @@
 			unpackaged="package.xml"/>
 	</target>
 
+	<target name="runTests">
+       <sf:deploy
+			username="${sf.username}"
+			password="${sf.password}"
+			serverurl="${sf.serverurl}"
+			testLevel="RunSpecifiedTests"
+			deployRoot="dummy"
+			checkOnly="true">
+				<runTest>Life_WorkOrderTriggerHandlerTest</runTest>
+		</sf:deploy>
+	</target>
+
 	<target name="runTestsProxy" depends="proxy">
        <sf:deploy
 			username="${sf.username}"
 			password="${sf.password}"
 			serverurl="${sf.serverurl}"
 			testLevel="RunSpecifiedTests"
+			deployRoot="dummy"
 			checkOnly="true">
 				<runTest>Life_WorkOrderTriggerHandlerTest</runTest>
 		</sf:deploy>
 	</target>
 
 	<target name="pmd">
-		<taskdef name="pmd" classname="net.sourceforge.pmd.ant.PMDTask" />
 		<pmd shortFilenames="true">
 			<ruleset>category/apex/bestpractices.xml</ruleset>
 			<fileset dir="${sf.projectFolder}/classes">
