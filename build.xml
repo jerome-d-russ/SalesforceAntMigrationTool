@@ -364,28 +364,14 @@
 	</target>
 
 	<target name="runTestsProxy" depends="proxy">
-		<taskdef resource="com/salesforce/antlib.xml" classpath="${basedir}/lib/ant-salesforce.jar" />
-		<script language="javascript"><![CDATA[
-		var deployTask = project.createTask('antlib:com.salesforce:deploy');
-		deployTask.setUsername(project.getProperty("sf.username"));
-		deployTask.setPassword(project.getProperty("sf.password"));
-		deployTask.setServerURL(project.getProperty("sf.serverurl"));
-		deployTask.setTestLevel(project.getProperty("sf.testLevel"));
-		deployTask.setMaxPoll("300");
-		var tests = project.getProperty("sf.tests");
-		if (tests) {
-			deployTask.setTestLevel('RunSpecifiedTests');
-			tests = tests.split(',');
-			for (var i = 0; i < tests.length; i++) {
-			var runTest = java.lang.Class.forName(
-				"com.salesforce.ant.DeployTask$CodeNameElement"
-			).newInstance();
-			runTest.addText(tests[i]);
-			deployTask.addRunTest(runTest);
-			}
-		}
-		deployTask.perform();
-		]]></script>
+       <sf:deploy
+			username="${sf.username}"
+			password="${sf.password}"
+			serverurl="${sf.serverurl}"
+			testLevel="RunSpecifiedTests"
+			checkOnly="true">
+				<runTest>Life_WorkOrderTriggerHandlerTest</runTest>
+		</sf:deploy>
 	</target>
 
 	<target name="pmd">
