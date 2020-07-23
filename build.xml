@@ -369,7 +369,7 @@
 			password="${sf.password}"
 			serverurl="${sf.serverurl}"
 			testLevel="RunSpecifiedTests"
-			deployRoot="dummy"
+			deployRoot="${sf.projectFolder}"
 			checkOnly="true">
 				<runTest>Life_WorkOrderTriggerHandlerTest</runTest>
 		</sf:deploy>
@@ -381,7 +381,7 @@
 			password="${sf.password}"
 			serverurl="${sf.serverurl}"
 			testLevel="RunSpecifiedTests"
-			deployRoot="dummy"
+			deployRoot="${sf.projectFolder}"
 			checkOnly="true">
 				<runTest>Life_WorkOrderTriggerHandlerTest</runTest>
 		</sf:deploy>
@@ -389,6 +389,7 @@
 
 	<target name="pmd">
 		<pmd shortFilenames="true">
+			<formatter type="xml" toFile="pmd_report.xml"/>
 			<ruleset>category/apex/bestpractices.xml</ruleset>
 			<fileset dir="${sf.projectFolder}/classes">
 				<include name="*.cls"/>
