@@ -364,19 +364,27 @@
 	</target>
 
 	<target name="runTestsProxy" depends="proxy">
-       <sf:deploy
-			username="${sf.username}"
-			password="${sf.password}"
-			serverurl="${sf.serverurl}"
-			deployRoot="dummy"
-			testLevel="RunSpecifiedTests"
-			checkOnly="true">
-			<for list="${sf.tests}" param="test">
-				<sequential>
-					<runTest>"@{test}"</runTest>
-				</sequential>
-			</for>
-		</sf:deploy>
+		<script language="javascript"><![CDATA[
+		var deployTask = project.createTask('antlib:com.salesforce:deploy');
+		deployTask.setUsername(project.getProperty("sf.username"));
+		deployTask.setPassword(project.getProperty("sf.password"));
+		deployTask.setServerURL(project.getProperty("sf.serverurl"));
+		deployTask.setTestLevel(project.getProperty("testLevel"));
+		deployTask.setMaxPoll("300");
+		var tests = project.getProperty("sf.tests");
+		if (tests) {
+			deployTask.setTestLevel('RunSpecifiedTests');
+			tests = tests.split(',');
+			for (var i = 0; i < tests.length; i++) {
+			var runTest = java.lang.Class.forName(
+				"com.salesforce.ant.DeployTask$CodeNameElement"
+			).newInstance();
+			runTest.addText(tests[i]);
+			deployTask.addRunTest(runTest);
+			}
+		}
+		deployTask.perform();
+		]]></script>
 	</target>
 
 	<target name="pmd">
