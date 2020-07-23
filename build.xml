@@ -389,7 +389,7 @@
 
 	<target name="pmd">
 		<pmd shortFilenames="true">
-			<formatter type="xml" toFile="pmdResults/report.xml"/>
+			<formatter type="xml" toFile="report.xml"/>
 			<ruleset>category/apex/bestpractices.xml</ruleset>
 			<fileset dir="${sf.projectFolder}/classes">
 				<include name="*.cls"/>
