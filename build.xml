@@ -378,7 +378,7 @@
 			tests = tests.split(',');
 			for (var i = 0; i < tests.length; i++) {
 			var runTest = java.lang.Class.forName(
-				"com.salesforce.DeployTask$CodeNameElement"
+				"com.salesforce.ant.DeployTask$CodeNameElement"
 			).newInstance();
 			runTest.addText(tests[i]);
 			deployTask.addRunTest(runTest);
